@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>AgentAudit — Execution Details</title>
+<link rel="icon" href="assets/logo-mark.png" />
+<link rel="stylesheet" href="style.css" />
+<script src="app.js"></script>
+</head>
+<body>
+<script>
+const agentKey = getParam("agent");
+const runId = getParam("run");
+
+renderShell({
+  crumbs: ["Dashboard", "Agent Runs", "Run Details"],
+  contentHtml: `<div id="content-inner" class="empty"><span class="spinner"></span> Loading run…</div>`
+});
+
+async function load() {
+  if (!agentKey || !runId) {
+    document.getElementById("content-inner").innerHTML = `<div class="empty">Missing agent/run. <a class="link-btn" href="agent-runs.html">&larr; Go to Agent Runs</a></div>`;
+    return;
+  }
+  try {
+    const run = await api(`/runs/${encodeURIComponent(agentKey)}/${encodeURIComponent(runId)}`);
+    const decision = run.final_decision.decision;
+    const isAnomalous = run.analysis.is_anomalous;
+    const risk = isAnomalous ? "High" : (decision === "REJECT" || decision === "ESCALATE" ? "Medium" : "Low");
+    const status = isAnomalous ? "Flagged" : (decision === "REJECT" ? "Rejected" : decision === "ESCALATE" ? "Escalated" : "Completed");
+    const toolCalls = run.events.filter(e => e.event_type === "tool_call");
+    const llmCalls = run.events.filter(e => e.event_type === "llm_call");
+    const c = agentColor(run.agent_name);
+
+    document.getElementById("content-inner").innerHTML = `
+      <div class="inpage-crumbs">
+        <a href="dashboard.html">Dashboard</a>${ICONS.chevRight}
+        <a href="agent-runs.html">Agent Runs</a>${ICONS.chevRight}
+        <b>Run Details</b>
+      </div>
+      <div class="page-head">
+        <div>
+          <h1 class="title">Agent Execution Details <span class="run-pill">#${run.run_id.slice(0,8)}</span></h1>
+          <p class="subtitle">Comprehensive audit trail and decision logic for ${escapeHtml(run.agent_name)}.</p>
+        </div>
+        <div class="actions">
+          <button class="btn" onclick="location.href='decision-graph.html?agent=${agentKey}&run=${runId}'">${ICONS.graph} View Decision Graph</button>
+          <button class="btn btn-accent" onclick="location.href='decision-explanation.html?agent=${agentKey}&run=${runId}'">${ICONS.msg} Explain Decision</button>
+        </div>
+      </div>
+
+      <div class="grid g6 mb-lg">
+        <div class="card stat" style="padding:14px 16px;"><span class="label">Status</span><span class="pill dot green" style="width:fit-content; margin-top:4px;">Completed</span></div>
+        <div class="card stat" style="padding:14px 16px;"><span class="label">Risk</span><span class="pill ${pillForRisk(risk)}" style="width:fit-content; margin-top:4px;">${risk}</span></div>
+        <div class="card stat" style="padding:14px 16px;"><span class="label">Agent</span><div class="value txt">${escapeHtml(run.agent_name)}</div></div>
+        <div class="card stat" style="padding:14px 16px;"><span class="label">Duration</span><div class="value txt">${run.duration}s</div></div>
+        <div class="card stat" style="padding:14px 16px;"><span class="label">Tool Calls</span><div class="value txt">${toolCalls.length}</div></div>
+        <div class="card stat" style="padding:14px 16px;"><span class="label">Outcome</span><span class="pill ${pillForStatus(status)}" style="width:fit-content; margin-top:4px;">${status}</span></div>
+      </div>
+
+      <div class="grid g-main-wide">
+        <div>
+          <div class="grid g-2 mb">
+            <div class="card">
+              <div class="section-label">${ICONS.check} Original Request</div>
+              <div class="code">${escapeHtml(run.request)}</div>
+            </div>
+            <div class="card">
+              <div class="section-label">${ICONS.check} Agent's Final Response</div>
+              <div class="code">${escapeHtml(run.final_decision.reason || "—")}</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3 class="card-title" style="font-size:15px;">Detailed Execution Timeline</h3>
+            <div class="card-sub" style="margin-bottom:16px;">Every tool call and LLM reasoning step, in order</div>
+            <div class="timeline">${run.events.map(renderTimelineItem).join("")}</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="section-label">${ICONS.file} Execution Summary</div>
+          <div style="font-size:12.5px; color:var(--muted); line-height:1.6; margin-bottom:18px;">
+            ${escapeHtml(run.agent_name)} processed this request using <b style="color:var(--text)">${toolCalls.length}</b> tool call(s) and
+            <b style="color:var(--text)">${llmCalls.length}</b> LLM reasoning step(s), reaching a final decision of
+            <b style="color:var(--text)">${decision}</b>.
+          </div>
+
+          <div class="section-label">Key Decisions</div>
+          ${toolCalls.length ? toolCalls.map(t => `
+            <div class="chip mb" style="width:100%; justify-content:flex-start;">${ICONS.check} Called <code style="margin-left:2px;">${escapeHtml(t.tool_name)}</code></div>
+          `).join("") : `<div style="font-size:12.5px; color:var(--faint);">No tool calls recorded.</div>`}
+
+          <div class="section-label" style="margin-top:6px;">Anomalies Detected</div>
+          ${isAnomalous ? `
+            <div class="callout red">
+              <div class="h">${ICONS.warn} Anomaly Flagged</div>
+              ${run.analysis.reasons.map(r => `<div class="b" style="margin-top:4px;">${escapeHtml(r)}</div>`).join("")}
+            </div>
+          ` : `<div class="callout green"><div class="b">None — this run matches the agent's typical historical behavior.</div></div>`}
+        </div>
+      </div>
+    `;
+    document.getElementById("content-inner").className = "";
+  } catch (e) {
+    document.getElementById("content-inner").innerHTML = `<div class="empty" style="color:var(--red);">Failed to load run: ${e.message}</div>`;
+  }
+}
+
+function renderTimelineItem(event) {
+  const ts = (event.timestamp || "").slice(11, 19);
+  let title, body, dotClass;
+  if (event.event_type === "tool_call") {
+    title = `Called <code>${escapeHtml(event.tool_name)}</code>`;
+    body = `Input: ${escapeHtml(JSON.stringify(event.input))}`;
+    dotClass = "green";
+  } else {
+    title = "LLM Reasoning Step";
+    body = event.content ? escapeHtml(event.content).slice(0, 160) : `Requested: ${(event.tool_calls_requested || []).join(", ") || "none"}`;
+    dotClass = "violet";
+  }
+  return `
+    <div class="t-item">
+      <div class="t-dot ${dotClass}"></div>
+      <div>
+        <div class="t-time">${ts}</div>
+        <div class="t-title">${title}</div>
+        <div class="t-body">${body}</div>
+      </div>
+    </div>
+  `;
+}
+
+load();
+</script>
+</body>
+</html>

@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>AgentAudit — Decision Graph</title>
+<link rel="icon" href="assets/logo-mark.png" />
+<link rel="stylesheet" href="style.css" />
+<script src="app.js"></script>
+<style>
+  .graph-shell { display: grid; grid-template-columns: minmax(0,1fr) 340px; gap: 16px; align-items: start; }
+  .graph-canvas {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow);
+    padding: 40px 34px; overflow-x: auto; min-height: 300px; display: flex; align-items: center;
+    background-image: radial-gradient(circle, #E7E9F3 1px, transparent 1px); background-size: 22px 22px;
+  }
+  .flow { display: flex; align-items: center; }
+  .flow-node {
+    width: 112px; min-height: 84px; border: 1.5px solid var(--border-strong); border-radius: 14px;
+    background: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 10px 8px; text-align: center; cursor: pointer; position: relative; flex-shrink: 0;
+    box-shadow: var(--shadow-sm); transition: transform .12s, box-shadow .15s, border-color .15s;
+  }
+  .flow-node:hover { transform: translateY(-2px); box-shadow: var(--shadow); border-color: var(--accent); }
+  .flow-node.selected { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
+  .flow-node .fico { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; margin-bottom: 6px; }
+  .flow-node .flabel { font-size: 10px; font-weight: 700; letter-spacing: .01em; color: var(--text-2); line-height: 1.2; word-break: break-word; }
+  .flow-node .fsub { font-size: 9px; color: var(--faint); margin-top: 3px; font-family: var(--mono); }
+  .flow-node .anomaly-dot { position: absolute; top: -6px; right: -6px; width: 15px; height: 15px; border-radius: 50%; background: var(--amber-dot); border: 3px solid #fff; box-shadow: var(--shadow-sm); }
+  .flow-arrow { width: 40px; height: 2px; background: var(--border-strong); flex-shrink: 0; position: relative; }
+  .flow-arrow::after { content: ""; position: absolute; right: -1px; top: -4px; border: 5px solid transparent; border-left-color: var(--border-strong); }
+  .node-panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; min-height: 300px; position: sticky; top: 82px; }
+  .kv-card { background: var(--surface-2); border: 1px solid var(--border); border-radius: 11px; padding: 10px 12px; }
+  .kv-card .l { font-size: 10px; font-weight: 700; letter-spacing: .06em; color: var(--faint); text-transform: uppercase; }
+  .kv-card .v { font-weight: 700; font-size: 13.5px; margin-top: 2px; }
+</style>
+</head>
+<body>
+<script>
+const agentKey = getParam("agent");
+const runId = getParam("run");
+
+renderShell({
+  crumbs: ["Dashboard", "Agent Runs", "Decision Graph"],
+  contentHtml: `<div id="content-inner" class="empty"><span class="spinner"></span> Loading graph…</div>`
+});
+
+let graphData = null;
+let selectedIdx = null;
+
+const NODE_STYLE = {
+  request: { bg: "var(--blue-soft)", color: "var(--blue)", icon: () => ICONS.play },
+  llm:     { bg: "var(--violet-soft)", color: "var(--violet)", icon: () => ICONS.brain },
+  tool:    { bg: "var(--accent-soft)", color: "var(--accent)", icon: () => ICONS.bolt },
+  decision:{ bg: "var(--green-soft)", color: "var(--green)", icon: () => ICONS.target },
+  event:   { bg: "#F1F3F8", color: "var(--muted)", icon: () => ICONS.file },
+};
+
+async function load() {
+  if (!agentKey || !runId) {
+    document.getElementById("content-inner").innerHTML = `<div class="empty">Missing agent/run. <a class="link-btn" href="agent-runs.html">&larr; Go to Agent Runs</a></div>`;
+    return;
+  }
+  try {
+    const [graph, run] = await Promise.all([
+      api(`/runs/${encodeURIComponent(agentKey)}/${encodeURIComponent(runId)}/graph`),
+      api(`/runs/${encodeURIComponent(agentKey)}/${encodeURIComponent(runId)}`),
+    ]);
+    graphData = graph;
+    const toolCalls = graph.nodes.filter(n => n.type === "tool").length;
+    const llmCalls = graph.nodes.filter(n => n.type === "llm").length;
+    const isAnomalous = run.analysis.is_anomalous;
+
+    document.getElementById("content-inner").innerHTML = `
+      <div class="inpage-crumbs">
+        <a href="dashboard.html">Dashboard</a>${ICONS.chevRight}
+        <a href="agent-runs.html">Agent Runs</a>${ICONS.chevRight}
+        <b>Decision Graph</b>
+      </div>
+      <div class="page-head">
+        <div>
+          <h1 class="title">Decision Graph <span class="run-pill">#${runId.slice(0,8)}</span></h1>
+          <p class="subtitle">Visual, node-based representation of the agent's reasoning process. Click any node to inspect it.</p>
+        </div>
+        <div class="actions">
+          <button class="btn" onclick="location.href='decision-explanation.html?agent=${agentKey}&run=${runId}'">${ICONS.msg} Generate Plain-English Explanation</button>
+          <button class="btn btn-dark" onclick="location.href='risk-analysis.html'">${ICONS.risk} View Risk Analysis</button>
+        </div>
+      </div>
+
+      <div class="grid g5 mb-lg">
+        <div class="card stat" style="padding:14px 16px;"><span class="label">Total Nodes</span><div class="value txt">${graph.nodes.length}</div></div>
+        <div class="card stat" style="padding:14px 16px;"><span class="label">Tool Calls</span><div class="value txt">${toolCalls}</div></div>
+        <div class="card stat" style="padding:14px 16px;"><span class="label">LLM Calls</span><div class="value txt">${llmCalls}</div></div>
+        <div class="card stat" style="padding:14px 16px;"><span class="label">Decision Points</span><div class="value txt">1</div></div>
+        <div class="card stat" style="padding:14px 16px;"><span class="label">Anomalies</span><div class="value txt" style="color:${isAnomalous ? 'var(--red)' : 'inherit'};">${isAnomalous ? 1 : 0}</div></div>
+      </div>
+
+      <div class="graph-shell">
+        <div class="graph-canvas"><div class="flow" id="flow"></div></div>
+        <div class="node-panel" id="node-panel">
+          <div class="section-label">${ICONS.target} Node Details</div>
+          <div style="font-size:13px; color:var(--muted);">Click a node in the graph to inspect its inputs, outputs, and timing.</div>
+        </div>
+      </div>
+    `;
+    document.getElementById("content-inner").className = "";
+
+    const flowEl = document.getElementById("flow");
+    flowEl.innerHTML = graph.nodes.map((node, i) => {
+      const style = NODE_STYLE[node.type] || NODE_STYLE.event;
+      const isAnomalyNode = node.type === "decision" && isAnomalous;
+      const arrow = i < graph.nodes.length - 1 ? `<div class="flow-arrow"></div>` : "";
+      return `
+        <div class="flow-node" data-idx="${i}">
+          ${isAnomalyNode ? '<div class="anomaly-dot"></div>' : ''}
+          <div class="fico" style="background:${style.bg}; color:${style.color};">${style.icon()}</div>
+          <div class="flabel">${escapeHtml(node.label.slice(0, 18))}</div>
+          <div class="fsub">${node.type}</div>
+        </div>
+        ${arrow}
+      `;
+    }).join("");
+
+    // Event delegation — robust regardless of how the DOM was inserted.
+    flowEl.querySelectorAll(".flow-node").forEach(el => {
+      el.addEventListener("click", () => selectNode(parseInt(el.dataset.idx, 10)));
+    });
+
+    // Auto-select the first node so the panel isn't empty on load.
+    if (graph.nodes.length) selectNode(0);
+  } catch (e) {
+    document.getElementById("content-inner").innerHTML = `<div class="empty" style="color:var(--red);">Failed to load graph: ${e.message}</div>`;
+  }
+}
+
+function selectNode(idx) {
+  selectedIdx = idx;
+  document.querySelectorAll(".flow-node").forEach(el => el.classList.remove("selected"));
+  const el = document.querySelector(`.flow-node[data-idx="${idx}"]`);
+  if (el) el.classList.add("selected");
+
+  const node = graphData.nodes[idx];
+  const panel = document.getElementById("node-panel");
+  const style = NODE_STYLE[node.type] || NODE_STYLE.event;
+
+  let detailsHtml = "";
+  if (node.type === "tool") {
+    detailsHtml = `
+      <div class="grid g-2 mb">
+        <div class="kv-card"><div class="l">Duration</div><div class="v">${(node.data.duration_seconds ?? 0)}s</div></div>
+        <div class="kv-card"><div class="l">Tool</div><div class="v" style="font-size:12px;">${escapeHtml(node.data.tool_name)}</div></div>
+      </div>
+      <div class="section-label" style="margin-top:14px;">Input</div>
+      <div class="code">${escapeHtml(JSON.stringify(node.data.input, null, 2))}</div>
+      <div class="section-label" style="margin-top:14px;">Output</div>
+      <div class="code">${escapeHtml(JSON.stringify(node.data.output, null, 2))}</div>
+    `;
+  } else if (node.type === "llm") {
+    detailsHtml = `
+      <div class="kv-card mb"><div class="l">Model</div><div class="v" style="font-size:12px;">${escapeHtml(node.data.model || "—")}</div></div>
+      <div class="section-label">Tools Requested</div>
+      <div class="code">${escapeHtml((node.data.tools_requested || []).join(", ") || "none")}</div>
+      ${node.data.content ? `<div class="section-label" style="margin-top:14px;">Reasoning</div><div class="code">${escapeHtml(node.data.content)}</div>` : ""}
+    `;
+  } else if (node.type === "decision") {
+    detailsHtml = `
+      <div class="kv-card mb"><div class="l">Decision</div><div class="v">${escapeHtml(node.data.decision)}</div></div>
+      <div class="section-label">Reason</div>
+      <div class="code">${escapeHtml(node.data.reason || "—")}</div>
+    `;
+  } else if (node.type === "request") {
+    detailsHtml = `<div class="section-label">Original Request</div><div class="code">${escapeHtml(typeof node.data.request === "string" ? node.data.request : JSON.stringify(node.data.request))}</div>`;
+  }
+
+  panel.innerHTML = `
+    <div class="flex items-center gap-12 mb">
+      <span class="ico" style="background:${style.bg}; color:${style.color};">${style.icon()}</span>
+      <div>
+        <div style="font-weight:700; font-size:15px;">${escapeHtml(node.label)}</div>
+        <div style="font-size:11.5px; color:var(--faint); text-transform:capitalize;">${node.type} node</div>
+      </div>
+    </div>
+    ${detailsHtml}
+  `;
+}
+
+load();
+</script>
+</body>
+</html>

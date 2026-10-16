@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>AgentAudit — Agent Runs</title>
+<link rel="icon" href="assets/logo-mark.png" />
+<link rel="stylesheet" href="style.css" />
+<script src="app.js"></script>
+</head>
+<body>
+<script>
+renderShell({
+  crumbs: ["Platform", "Agent Runs"],
+  contentHtml: `
+    <div class="page-head">
+      <div>
+        <h1 class="title">Agent Runs</h1>
+        <p class="subtitle">Monitor and audit every autonomous agent execution.</p>
+      </div>
+      <div class="actions">
+        <button class="btn">${ICONS.file} Audit Report</button>
+        <button class="btn btn-dark" onclick="location.href='dashboard.html'">${ICONS.dashboard} Back to Dashboard</button>
+      </div>
+    </div>
+
+    <div id="stat-grid" class="grid g4 mb-lg">
+      ${Array(4).fill('<div class="card stat"><div class="skeleton" style="height:60px;"></div></div>').join("")}
+    </div>
+
+    <div class="filters">
+      <div class="field grow">${ICONS.search}<input id="search" placeholder="Filter by task description..." /></div>
+      <div class="field"><select id="agent-filter"><option value="">All Agents</option></select>${ICONS.chevDown}</div>
+      <div class="field">
+        <select id="status-filter">
+          <option value="">All Statuses</option>
+          <option>Completed</option><option>Flagged</option><option>Rejected</option><option>Escalated</option>
+        </select>${ICONS.chevDown}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <h3 class="card-title">Execution Logs</h3>
+          <div class="card-sub">Deep visibility into every agent decision and outcome</div>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>Run ID</th><th>Agent</th><th>Task Description</th><th>Status</th>
+            <th>Risk</th><th>Tools</th><th>Duration</th><th>Timestamp</th><th></th>
+          </tr></thead>
+          <tbody id="rows"><tr><td colspan="9" class="empty">Loading…</td></tr></tbody>
+        </table>
+      </div>
+      <div class="pagination">
+        <span id="count-label"></span>
+        <div class="pages" id="pages"></div>
+      </div>
+    </div>
+  `
+});
+
+let allRuns = [];
+let currentPage = 1;
+const PAGE_SIZE = 8;
+
+function filteredRuns() {
+  const search = document.getElementById("search").value.toLowerCase();
+  const agentFilter = document.getElementById("agent-filter").value;
+  const statusFilter = document.getElementById("status-filter").value;
+  return allRuns.filter(r =>
+    (!search || r.task.toLowerCase().includes(search)) &&
+    (!agentFilter || r.agent_key === agentFilter) &&
+    (!statusFilter || r.status === statusFilter)
+  );
+}
+
+function renderRows() {
+  const filtered = filteredRuns();
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  currentPage = Math.min(currentPage, totalPages);
+  const pageRuns = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  document.getElementById("count-label").textContent =
+    filtered.length ? `Showing ${(currentPage-1)*PAGE_SIZE+1}–${Math.min(currentPage*PAGE_SIZE, filtered.length)} of ${filtered.length} executions` : `0 executions`;
+
+  if (filtered.length === 0) {
+    document.getElementById("rows").innerHTML = `<tr><td colspan="9" class="empty">${ICONS.inbox}<div style="margin-top:6px;">No runs match these filters.</div></td></tr>`;
+  } else {
+    document.getElementById("rows").innerHTML = pageRuns.map(r => `
+      <tr>
+        <td class="mono td-muted">${r.run_id.slice(0, 8)}</td>
+        <td>
+          <div class="flex items-center gap-12">
+            <div class="agent-avatar" style="background:var(--accent-soft); color:var(--accent); font-size:11px;">${initials(r.agent_name)}</div>
+            <span class="td-strong">${escapeHtml(r.agent_name)}</span>
+          </div>
+        </td>
+        <td class="td-muted" style="max-width:280px;">${escapeHtml(r.task.slice(0, 56))}${r.task.length > 56 ? "…" : ""}</td>
+        <td><span class="pill dot ${pillForStatus(r.status)}">${r.status}</span></td>
+        <td style="white-space:nowrap;"><span class="rdot ${r.risk_level}"></span>${r.risk_level}</td>
+        <td class="td-muted">${r.tool_calls}</td>
+        <td class="mono td-muted">${r.duration}s</td>
+        <td class="td-muted mono" style="font-size:12px;">${fmtTimestamp(r.timestamp)}</td>
+        <td>
+          <a class="btn sm" href="execution-details.html?agent=${encodeURIComponent(r.agent_key)}&run=${encodeURIComponent(r.run_id)}">View ${ICONS.external}</a>
+        </td>
+      </tr>
+    `).join("");
+  }
+
+  document.getElementById("pages").innerHTML = `
+    <button class="pg" ${currentPage===1?'disabled':''} onclick="goPage(${currentPage-1})">&lsaquo;</button>
+    ${Array.from({length: totalPages}, (_, i) => i+1).slice(0, 6).map(p => `<button class="pg ${p===currentPage?'active':''}" onclick="goPage(${p})">${p}</button>`).join("")}
+    ${totalPages > 6 ? `<span style="padding:0 4px;">…</span>` : ""}
+    <button class="pg" ${currentPage===totalPages?'disabled':''} onclick="goPage(${currentPage+1})">&rsaquo;</button>
+  `;
+}
+
+function goPage(p) { currentPage = p; renderRows(); }
+
+async function load() {
+  try {
+    allRuns = await api("/runs");
+    const stats = await api("/fleet-stats");
+
+    document.getElementById("stat-grid").innerHTML = `
+      <div class="card stat"><span class="label">Total Runs</span><div class="value">${stats.total_executions}</div></div>
+      <div class="card stat"><span class="label">Active Agents</span><div class="value">${stats.total_active_agents}</div></div>
+      <div class="card stat"><span class="label">Anomalies Detected</span><div class="value" style="color:${stats.anomalies_detected ? 'var(--red)' : 'inherit'}">${stats.anomalies_detected}</div></div>
+      <div class="card stat"><span class="label">Escalated Runs</span><div class="value">${stats.escalated_runs}</div></div>
+    `;
+
+    const agentKeys = [...new Set(allRuns.map(r => r.agent_key))];
+    document.getElementById("agent-filter").innerHTML += agentKeys.map(k => {
+      const name = allRuns.find(r => r.agent_key === k).agent_name;
+      return `<option value="${k}">${name}</option>`;
+    }).join("");
+
+    renderRows();
+    ["search","agent-filter","status-filter"].forEach(id =>
+      document.getElementById(id).addEventListener("input", () => { currentPage = 1; renderRows(); })
+    );
+  } catch (e) {
+    document.getElementById("rows").innerHTML = `<tr><td colspan="9" class="empty" style="color:var(--red);">Failed to load: ${e.message}</td></tr>`;
+  }
+}
+load();
+</script>
+</body>
+</html>

@@ -1,0 +1,119 @@
+digraph AgentAudit {
+    rankdir=TB;
+    graph [pad="0.5", nodesep="0.6", ranksep="0.8"];
+    node [shape=plain, fontname="Arial"];
+    edge [fontname="Arial", arrowsize="0.8"];
+    "request" [label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="8">
+        <TR>
+            <TD BGCOLOR="#E8E8E8">
+                <B>REQUEST</B>
+            </TD>
+        </TR>
+        
+            <TR>
+                <TD ALIGN="LEFT">
+                    <B>Request</B>
+                    : Applicant APPL999 wants a loan approved for application LOAN999.
+The loan is for medical expenses.
+                </TD>
+            </TR>
+            </TABLE>>];
+    "llm_1" [label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="8">
+        <TR>
+            <TD BGCOLOR="#E8E8E8">
+                <B>LLM</B>
+            </TD>
+        </TR>
+        
+            <TR>
+                <TD ALIGN="LEFT">
+                    <B>Model</B>
+                    : openrouter/free
+                </TD>
+            </TR>
+            
+            <TR>
+                <TD ALIGN="LEFT">
+                    <B>Tools</B>
+                    : check_loan_application, check_applicant_history
+                </TD>
+            </TR>
+            </TABLE>>];
+    "tool_2" [label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="8">
+        <TR>
+            <TD BGCOLOR="#E8E8E8">
+                <B>TOOL</B>
+            </TD>
+        </TR>
+        
+            <TR>
+                <TD ALIGN="LEFT">
+                    <B>Tool</B>
+                    : check_loan_application
+                </TD>
+            </TR>
+            </TABLE>>];
+    "tool_3" [label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="8">
+        <TR>
+            <TD BGCOLOR="#E8E8E8">
+                <B>TOOL</B>
+            </TD>
+        </TR>
+        
+            <TR>
+                <TD ALIGN="LEFT">
+                    <B>Tool</B>
+                    : check_applicant_history
+                </TD>
+            </TR>
+            </TABLE>>];
+    "llm_4" [label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="8">
+        <TR>
+            <TD BGCOLOR="#E8E8E8">
+                <B>LLM</B>
+            </TD>
+        </TR>
+        
+            <TR>
+                <TD ALIGN="LEFT">
+                    <B>Model</B>
+                    : openrouter/free
+                </TD>
+            </TR>
+            
+            <TR>
+                <TD ALIGN="LEFT">
+                    <B>Tools</B>
+                    : 
+                </TD>
+            </TR>
+            </TABLE>>];
+    "decision" [label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="8">
+        <TR>
+            <TD BGCOLOR="#E8E8E8">
+                <B>FINAL DECISION</B>
+            </TD>
+        </TR>
+        
+            <TR>
+                <TD ALIGN="LEFT">
+                    <B>Decision</B>
+                    : ESCALATE
+                </TD>
+            </TR>
+            
+            <TR>
+                <TD ALIGN="LEFT">
+                    <B>Reason</B>
+                    : **ESCALATE**
+
+Both the loan application (LOAN999) and the applicant (APPL999) could not be found in the system. Since the required information is missing, I cannot proceed with evaluating or processing this loan request. This needs to be escalated for further investigation.
+                </TD>
+            </TR>
+            </TABLE>>];
+    "request" -> "llm_1";
+    "llm_1" -> "tool_2";
+    "tool_2" -> "tool_3";
+    "tool_3" -> "llm_4";
+    "llm_4" -> "decision";
+}

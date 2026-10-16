@@ -1,0 +1,130 @@
+digraph AgentAudit {
+    rankdir=TB;
+    graph [pad="0.5", nodesep="0.6", ranksep="0.8"];
+    node [shape=plain, fontname="Arial"];
+    edge [fontname="Arial", arrowsize="0.8"];
+    "request" [label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="8">
+        <TR>
+            <TD BGCOLOR="#E8E8E8">
+                <B>REQUEST</B>
+            </TD>
+        </TR>
+        
+            <TR>
+                <TD ALIGN="LEFT">
+                    <B>origin</B>
+                    : Delhi
+                </TD>
+            </TR>
+            
+            <TR>
+                <TD ALIGN="LEFT">
+                    <B>destination</B>
+                    : Dubai
+                </TD>
+            </TR>
+            
+            <TR>
+                <TD ALIGN="LEFT">
+                    <B>date</B>
+                    : 2026-12-20
+                </TD>
+            </TR>
+            
+            <TR>
+                <TD ALIGN="LEFT">
+                    <B>passengers</B>
+                    : 4
+                </TD>
+            </TR>
+            </TABLE>>];
+    "llm_1" [label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="8">
+        <TR>
+            <TD BGCOLOR="#E8E8E8">
+                <B>LLM</B>
+            </TD>
+        </TR>
+        
+            <TR>
+                <TD ALIGN="LEFT">
+                    <B>Model</B>
+                    : simulated-agent-model
+                </TD>
+            </TR>
+            
+            <TR>
+                <TD ALIGN="LEFT">
+                    <B>Tools</B>
+                    : search_flights, check_fare, check_seat_capacity
+                </TD>
+            </TR>
+            </TABLE>>];
+    "tool_2" [label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="8">
+        <TR>
+            <TD BGCOLOR="#E8E8E8">
+                <B>TOOL</B>
+            </TD>
+        </TR>
+        
+            <TR>
+                <TD ALIGN="LEFT">
+                    <B>Tool</B>
+                    : search_flights
+                </TD>
+            </TR>
+            </TABLE>>];
+    "tool_3" [label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="8">
+        <TR>
+            <TD BGCOLOR="#E8E8E8">
+                <B>TOOL</B>
+            </TD>
+        </TR>
+        
+            <TR>
+                <TD ALIGN="LEFT">
+                    <B>Tool</B>
+                    : check_fare
+                </TD>
+            </TR>
+            </TABLE>>];
+    "tool_4" [label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="8">
+        <TR>
+            <TD BGCOLOR="#E8E8E8">
+                <B>TOOL</B>
+            </TD>
+        </TR>
+        
+            <TR>
+                <TD ALIGN="LEFT">
+                    <B>Tool</B>
+                    : check_seat_capacity
+                </TD>
+            </TR>
+            </TABLE>>];
+    "decision" [label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="8">
+        <TR>
+            <TD BGCOLOR="#E8E8E8">
+                <B>FINAL DECISION</B>
+            </TD>
+        </TR>
+        
+            <TR>
+                <TD ALIGN="LEFT">
+                    <B>Decision</B>
+                    : BOOK
+                </TD>
+            </TR>
+            
+            <TR>
+                <TD ALIGN="LEFT">
+                    <B>Reason</B>
+                    : A suitable flight was available with enough seats for all passengers.
+                </TD>
+            </TR>
+            </TABLE>>];
+    "request" -> "llm_1";
+    "llm_1" -> "tool_2";
+    "tool_2" -> "tool_3";
+    "tool_3" -> "tool_4";
+    "tool_4" -> "decision";
+}

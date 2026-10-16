@@ -1,0 +1,3 @@
+[tool.mutmut]
+paths_to_mutmut = "core/"
+tests_dir = "tests/"

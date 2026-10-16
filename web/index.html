@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>AgentAudit — Sign In</title>
+  <link rel="icon" href="assets/logo-mark.png" />
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    body {
+      background: #06070D;
+    }
+
+    .split {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    .left {
+      flex: 1.15;
+      position: relative;
+      overflow: hidden;
+      background: #06070D;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 56px 60px;
+    }
+
+    .left::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: url("assets/logo.png") center 46% / cover no-repeat;
+    }
+
+    .left::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(100deg, rgba(6, 7, 13, .94) 0%, rgba(6, 7, 13, .55) 46%, rgba(6, 7, 13, .15) 100%);
+    }
+
+    .left-inner {
+      position: relative;
+      z-index: 2;
+      max-width: 460px;
+    }
+
+    .left-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 800;
+      font-size: 16px;
+      color: #fff;
+      margin-bottom: 34px;
+    }
+
+    .left-brand img {
+      width: 32px;
+      height: 32px;
+      border-radius: 9px;
+    }
+
+    .left h1 {
+      font-size: 34px;
+      line-height: 1.22;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: #fff;
+      margin: 0 0 14px;
+    }
+
+    .left p {
+      color: #B7BDD6;
+      font-size: 14.5px;
+      line-height: 1.6;
+      max-width: 400px;
+      margin: 0;
+    }
+
+    .badges {
+      display: flex;
+      gap: 10px;
+      margin-top: 32px;
+      flex-wrap: wrap;
+    }
+
+    .badges span {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: #C9CEE8;
+      background: rgba(255, 255, 255, .06);
+      border: 1px solid rgba(255, 255, 255, .12);
+      padding: 6px 12px;
+      border-radius: 999px;
+      backdrop-filter: blur(6px);
+    }
+
+    .right {
+      flex: 1;
+      background: #fff;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 60px 100px;
+      position: relative;
+    }
+
+    .right-inner {
+      max-width: 380px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .right h2 {
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin: 0 0 4px;
+    }
+
+    .right .sub {
+      color: var(--muted);
+      font-size: 13.5px;
+      margin-bottom: 28px;
+    }
+
+    label {
+      display: block;
+      font-size: 12.5px;
+      font-weight: 700;
+      margin-bottom: 7px;
+      color: var(--text-2);
+    }
+
+    .field-full {
+      margin-bottom: 17px;
+    }
+
+    .field-full input {
+      width: 100%;
+      height: 44px;
+      padding: 0 14px;
+      border-radius: 11px;
+      border: 1px solid var(--border);
+      font-size: 13.5px;
+      background: var(--surface-2);
+      outline: none;
+      transition: border-color .15s, box-shadow .15s, background .15s;
+    }
+
+    .field-full input:focus {
+      border-color: var(--accent);
+      background: #fff;
+      box-shadow: 0 0 0 4px var(--accent-soft);
+    }
+
+    .row-between {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .link {
+      color: var(--accent);
+      font-size: 12.5px;
+      font-weight: 700;
+    }
+
+    .remember {
+      font-size: 12.5px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 4px 0 22px;
+    }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: var(--faint);
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      margin: 20px 0;
+      text-transform: uppercase;
+    }
+
+    .divider::before,
+    .divider::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .g-btn {
+      width: 100%;
+      justify-content: center;
+      height: 44px;
+    }
+
+    .signin-btn {
+      width: 100%;
+      justify-content: center;
+      height: 46px;
+      font-size: 13px;
+    }
+
+    .note-banner {
+      margin-top: 20px;
+      background: var(--accent-soft);
+      border: 1px solid #DCE0FB;
+      color: #4338CA;
+      font-size: 12px;
+      line-height: 1.55;
+      padding: 12px 14px;
+      border-radius: 12px;
+    }
+
+    .footer-note {
+      position: absolute;
+      bottom: 26px;
+      left: 0;
+      right: 0;
+      padding: 0 100px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 11.5px;
+      color: var(--faint);
+    }
+
+    .footer-note a {
+      margin-left: 16px;
+    }
+
+    .footer-note a:hover {
+      color: var(--accent);
+    }
+
+    @media (max-width: 980px) {
+      .left {
+        display: none;
+      }
+
+      .right {
+        padding: 40px 24px;
+      }
+
+      .footer-note {
+        padding: 0 24px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="split">
+    <div class="left">
+      <div class="left-inner">
+        <div class="left-brand"><img src="assets/logo-mark.png" alt="" />AgentAudit</div>
+        <h1>Understand why your AI agents make decisions</h1>
+        <p>Monitor, trace, and explain every agent decision — audit trails, anomaly detection, and plain-English
+          explanations built for AI observability.</p>
+        <div class="badges">
+          <span>&#9889; Real-time tracing</span>
+          <span>&#128737; Anomaly detection</span>
+          <span>&#128172; Plain-English audit</span>
+        </div>
+      </div>
+    </div>
+    <div class="right">
+      <div class="right-inner">
+        <h2>Sign In</h2>
+        <div class="sub">Access your agent observability dashboard</div>
+
+        <div class="field-full">
+          <label>Email Address</label>
+          <input type="email" placeholder="name@company.com" />
+        </div>
+        <div class="row-between">
+          <label style="margin:0;">Password</label>
+          <a class="link" href="#">Forgot password?</a>
+        </div>
+        <div class="field-full">
+          <input type="password" placeholder="••••••••" />
+        </div>
+        <div class="remember"><input type="checkbox" /> Remember me for 30 days</div>
+
+        <button class="btn btn-dark signin-btn" onclick="location.href='dashboard.html'">Sign In &rarr;</button>
+
+        <div class="divider">or continue with</div>
+        <button class="btn g-btn" onclick="location.href='dashboard.html'">&#128274; Sign in with Google</button>
+
+      </div>
+      <div class="footer-note">
+        <span>&copy; 2026 AgentAudit Inc.</span>
+        <span><a href="#">Privacy</a><a href="#">Terms</a><a href="#">Security</a></span>
+      </div>
+    </div>
+  </div>
+</body>
+
+</html>

@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>AgentAudit — Dashboard</title>
+<link rel="icon" href="assets/logo-mark.png" />
+<link rel="stylesheet" href="style.css" />
+<script src="app.js"></script>
+</head>
+<body>
+<script>
+renderShell({
+  crumbs: ["Platform", "Dashboard"],
+  contentHtml: `
+    <div class="page-head">
+      <div>
+        <h1 class="title">Observability Overview</h1>
+        <p class="subtitle">Real-time health and performance metrics across your agent fleet.</p>
+      </div>
+    </div>
+
+    <div id="stat-grid" class="grid g4 mb-lg">
+      ${Array(4).fill('<div class="card stat"><div class="skeleton" style="height:70px;"></div></div>').join("")}
+    </div>
+
+    <div class="grid g-main">
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <h3 class="card-title">${ICONS.cube} Active Agents</h3>
+            <div class="card-sub">Performance breakdown of currently deployed agentic workflows</div>
+          </div>
+          <a class="link-btn" href="agent-runs.html">View All Runs ${ICONS.chevRight}</a>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Agent Identity</th><th>Status</th><th>Total Runs</th><th>Audit Accuracy</th></tr></thead>
+            <tbody id="agents-body"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title" style="font-size:15px;">Recent Activity</h3>
+        <div class="card-sub" style="margin-bottom:14px;">Real-time audit trail of individual decisions</div>
+        <div id="activity-list"><div class="empty">Loading…</div></div>
+      </div>
+    </div>
+  `
+});
+
+const ICON_COLORS = { indigo: "#4F46E5", violet: "#7C3AED", blue: "#2563EB", green: "#16A34A", amber: "#B45309" };
+
+async function load() {
+  try {
+    const [stats, agents, activity] = await Promise.all([
+      api("/fleet-stats"), api("/agents"), api("/recent-activity?limit=6"),
+    ]);
+
+    document.getElementById("stat-grid").innerHTML = `
+      <div class="card stat hover">
+        <div class="top"><span class="label">Total Active Agents</span><span class="ico indigo">${ICONS.cube}</span></div>
+        <div class="value">${stats.total_active_agents}</div>
+        <div class="note">registered in agent_registry</div>
+      </div>
+      <div class="card stat hover">
+        <div class="top"><span class="label">Total Executions</span><span class="ico blue">${ICONS.refresh}</span></div>
+        <div class="value">${stats.total_executions}</div>
+        <div class="note">across all agents</div>
+      </div>
+      <div class="card stat hover">
+        <div class="top"><span class="label">Success Rate</span><span class="ico green">${ICONS.check}</span></div>
+        <div class="value">${stats.system_success_rate}<small>%</small></div>
+        <div class="note">share of runs decided APPROVE</div>
+      </div>
+      <div class="card stat hover">
+        <div class="top"><span class="label">Anomalies Detected</span><span class="ico amber">${ICONS.warn}</span></div>
+        <div class="value">${stats.anomalies_detected}</div>
+        <div class="note">${stats.escalated_runs} escalated</div>
+      </div>
+    `;
+
+    if (agents.length === 0) {
+      document.getElementById("agents-body").innerHTML = `<tr><td colspan="4" class="empty">No runs yet — run an agent from the CLI, then refresh.</td></tr>`;
+    } else {
+      document.getElementById("agents-body").innerHTML = agents.map(a => {
+        const c = agentColor(a.display_name);
+        return `
+        <tr>
+          <td>
+            <div class="flex items-center gap-12">
+              <div class="agent-avatar" style="background:${ICON_COLORS[c]}22; color:${ICON_COLORS[c]};">${initials(a.display_name)}</div>
+              <span class="td-strong">${escapeHtml(a.display_name)}</span>
+            </div>
+          </td>
+          <td><span class="pill dot ${a.status === 'ACTIVE' ? 'green' : 'gray'}">${a.status}</span></td>
+          <td>${a.total_runs}</td>
+          <td>
+            <div class="flex items-center gap-8">
+              <span class="td-strong">${a.audit_accuracy}%</span>
+              <div class="progress ${a.audit_accuracy >= 90 ? 'green' : a.audit_accuracy >= 70 ? 'amber' : 'red'}"><span style="width:${a.audit_accuracy}%"></span></div>
+            </div>
+          </td>
+        </tr>`;
+      }).join("");
+    }
+
+    if (activity.length === 0) {
+      document.getElementById("activity-list").innerHTML = `<div class="empty">No activity yet.</div>`;
+    } else {
+      document.getElementById("activity-list").innerHTML = activity.map(a => `
+        <div class="flex between items-center" style="padding:11px 0; border-bottom:1px solid #EEF0F6;">
+          <div class="flex items-center gap-12">
+            <span class="ico sm ${a.is_anomalous ? 'amber' : 'green'}">${a.is_anomalous ? ICONS.warn : ICONS.check}</span>
+            <div>
+              <div style="font-weight:600; font-size:13px;">${escapeHtml(a.title)}</div>
+              <div style="font-size:11.5px; color:var(--faint);">Agent: ${escapeHtml(a.agent_name)}</div>
+            </div>
+          </div>
+          <div style="font-size:11px; color:var(--faint); white-space:nowrap;">${a.when}</div>
+        </div>
+      `).join("");
+    }
+  } catch (e) {
+    document.getElementById("stat-grid").innerHTML = `<div class="card empty" style="grid-column:1/-1; color:var(--red);">Failed to load: ${e.message}</div>`;
+  }
+}
+load();
+</script>
+</body>
+</html>

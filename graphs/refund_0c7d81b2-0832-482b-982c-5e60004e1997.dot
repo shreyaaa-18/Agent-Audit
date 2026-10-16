@@ -1,0 +1,15 @@
+digraph AgentAudit {
+    rankdir=TB;
+    graph [pad="0.5", nodesep="0.5", ranksep="0.7"];
+    node [shape=box, style="rounded", fontname="Arial"];
+    edge [fontname="Arial"];
+    "request" [label="REQUEST\n\norder_id: ORD1003\\nissue: Customer requests a refund 60 days after purchase."];
+    "llm_1" [label="LLM\\n\\nModel: simulated-agent-model\\nTools requested: check_order, check_refund_policy"];
+    "tool_2" [label="TOOL\\n\\ncheck_order"];
+    "tool_3" [label="TOOL\\n\\ncheck_refund_policy"];
+    "decision" [label="DECISION\\n\\nREJECT\\n\\nThe refund request is outside the permitted refund window."];
+    "request" -> "llm_1";
+    "llm_1" -> "tool_2";
+    "tool_2" -> "tool_3";
+    "tool_3" -> "decision";
+}

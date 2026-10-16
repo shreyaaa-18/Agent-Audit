@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>AgentAudit — Risk Analysis</title>
+<link rel="icon" href="assets/logo-mark.png" />
+<link rel="stylesheet" href="style.css" />
+<script src="app.js"></script>
+</head>
+<body>
+<script>
+renderShell({
+  crumbs: ["Dashboard", "Risk Analysis"],
+  contentHtml: `<div id="content-inner" class="empty"><span class="spinner"></span> Loading…</div>`
+});
+
+async function load() {
+  try {
+    const data = await api("/analytics");
+    const decisions = data.decision_distribution;
+    const maxCount = Math.max(1, ...Object.values(decisions));
+    const DECISION_COLOR = { APPROVE: "green", REJECT: "red", ESCALATE: "amber", BOOK: "green" };
+
+    document.getElementById("content-inner").innerHTML = `
+      <div class="page-head">
+        <div>
+          <h1 class="title">${ICONS.risk} Risk Analysis Dashboard</h1>
+          <p class="subtitle">Fleet-wide anomaly detection logs, computed from real run history across every agent.</p>
+        </div>
+      </div>
+
+      <div class="grid g5 mb-lg">
+        <div class="card stat"><span class="label">Risk Score</span><div class="value">${data.risk_score}<small>/100</small></div></div>
+        <div class="card stat"><span class="label">Risk Level</span><span class="pill ${pillForRisk(data.risk_level)}" style="width:fit-content; margin-top:4px;">${data.risk_level}</span></div>
+        <div class="card stat"><span class="label">Total Runs Analyzed</span><div class="value">${data.total_runs_analyzed}</div></div>
+        <div class="card stat"><span class="label">Anomalies Detected</span><div class="value" style="color:${data.anomalies_detected ? 'var(--red)' : 'inherit'}">${data.anomalies_detected}</div></div>
+        <div class="card stat"><span class="label">Compliance</span><span class="pill ${data.anomalies_detected === 0 ? 'green' : 'amber'}" style="width:fit-content; margin-top:4px;">${data.anomalies_detected === 0 ? "Pass" : "Review"}</span></div>
+      </div>
+
+      <div class="grid g-2 mb-lg">
+        <div class="card">
+          <h3 class="card-title" style="font-size:15px;">Decision Distribution</h3>
+          <div class="card-sub" style="margin-bottom:16px;">Real outcome counts across every stored run — not a simulated distribution</div>
+          ${Object.keys(decisions).length ? Object.entries(decisions).map(([label, count]) => `
+            <div class="mb">
+              <div class="flex between" style="font-size:12.5px; margin-bottom:6px;">
+                <span class="td-strong">${label}</span><span class="td-muted">${count}</span>
+              </div>
+              <div class="progress ${DECISION_COLOR[label] || 'blue'}"><span style="width:${(count/maxCount)*100}%"></span></div>
+            </div>
+          `).join("") : `<div class="empty">No runs yet.</div>`}
+        </div>
+        <div class="card">
+          <h3 class="card-title" style="font-size:15px;">${ICONS.shield} About This Risk Score</h3>
+          <div class="card-sub" style="margin-bottom:12px;">How the number above is derived</div>
+          <div style="font-size:12.5px; color:var(--muted); line-height:1.65;">
+            This score is the percentage of all stored runs that AgentAudit's Analysis layer flagged as anomalous
+            (a run that skipped a tool it normally calls, or reached a decision that's rare for that agent).
+            It is a direct, honest derivation from your real run history — not a separately-trained ML risk model.
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title" style="font-size:15px;">Anomaly Detection Logs</h3>
+        <div class="card-sub" style="margin-bottom:14px;">Automated flagging of irregular agent behavior, across every agent</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Run ID</th><th>Agent</th><th>Decision</th><th>Severity</th><th>Reasons</th></tr></thead>
+            <tbody>
+              ${data.anomaly_logs.length ? data.anomaly_logs.map(log => `
+                <tr>
+                  <td class="mono td-muted">${log.run_id}</td>
+                  <td class="td-strong">${escapeHtml(log.agent_name)}</td>
+                  <td>${log.decision}</td>
+                  <td><span class="pill ${log.severity === 'High' ? 'red' : 'amber'}">${log.severity}</span></td>
+                  <td class="td-muted" style="font-size:12.5px;">${log.reasons.map(escapeHtml).join("; ")}</td>
+                </tr>
+              `).join("") : `<tr><td colspan="5" class="empty">No anomalies detected — either everything looks typical, or there isn't enough history yet to establish a baseline (3+ past runs per agent needed).</td></tr>`}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+    document.getElementById("content-inner").className = "";
+  } catch (e) {
+    document.getElementById("content-inner").innerHTML = `<div class="empty" style="color:var(--red);">Failed to load: ${e.message}</div>`;
+  }
+}
+load();
+</script>
+</body>
+</html>
